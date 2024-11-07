@@ -29,18 +29,25 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
 
     @Override
     public void onEnable() {
+        // Register event listeners
         Bukkit.getPluginManager().registerEvents(this, this);
+
+        // Register commands
         this.getCommand("launchfireball").setExecutor(this);
         this.getCommand("lobby").setExecutor(this);
         this.getCommand("l").setExecutor(this);
         this.getCommand("setlobby").setExecutor(this);
 
+        // Load lobby location from the config
         loadLobbyLocation();
+
+        // Log plugin status
         getLogger().info("CustomWelcomePlugin Enabled!");
     }
 
     @Override
     public void onDisable() {
+        // Log plugin shutdown
         getLogger().info("CustomWelcomePlugin Disabled!");
     }
 
@@ -48,24 +55,31 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
 
+        // Send a general welcome message to both new and returning players
+        player.sendMessage(ChatColor.GOLD + "Welcome to PracticePlace Network, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
+
         // Check if the player is joining for the first time
         if (firstTimePlayers.add(player.getName())) {
-            // First-time join message
-            player.sendMessage(ChatColor.GOLD + "Welcome to PracticePlace Network, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "! Have a fun!");
+            // First-time player message, firework will be launched
+            player.sendMessage(ChatColor.GREEN + "Have a fun!");
             playFirework(player.getLocation());
         } else {
             // Returning player message
             player.sendMessage(ChatColor.YELLOW + "Welcome back, " + ChatColor.AQUA + player.getName() + ChatColor.YELLOW + "!");
         }
 
-        // Broadcast a welcome message to all players
+        // Broadcast a general welcome message to all players (optional)
         Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "Launched PracticePlace");
     }
 
+    // Method to spawn fireworks at the given location
     private void playFirework(Location location) {
         if (location.getWorld() == null) return;
 
+        // Spawn a firework at the location
         Firework firework = location.getWorld().spawn(location, Firework.class);
+
+        // Create a firework effect (Red color with a Green fade)
         FireworkEffect effect = FireworkEffect.builder()
                 .with(Type.BALL)
                 .withColor(Color.RED)
@@ -74,9 +88,10 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
                 .flicker(true)
                 .build();
 
+        // Apply the effect to the firework
         FireworkMeta meta = firework.getFireworkMeta();
         meta.addEffect(effect);
-        meta.setPower(1);
+        meta.setPower(1); // Set the power (height) of the firework
         firework.setFireworkMeta(meta);
     }
 
@@ -87,6 +102,7 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
 
             switch (command.getName().toLowerCase()) {
                 case "launchfireball":
+                    // Handle launching a fireball
                     if (player.hasPermission("customwelcomeplugin.launchfireball")) {
                         player.launchProjectile(Fireball.class);
                         player.sendMessage(ChatColor.RED + "You launched a fireball!");
@@ -96,6 +112,7 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
                     return true;
 
                 case "setlobby":
+                    // Handle setting the lobby location
                     if (player.hasPermission("customwelcomeplugin.setlobby")) {
                         lobbyLocation = player.getLocation();
                         saveLobbyLocation(lobbyLocation);
@@ -107,6 +124,7 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
 
                 case "lobby":
                 case "l":
+                    // Handle teleporting to the lobby
                     if (player.hasPermission("customwelcomeplugin.lobby")) {
                         if (lobbyLocation != null) {
                             player.teleport(lobbyLocation);
@@ -128,6 +146,7 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
         }
     }
 
+    // Load the lobby location from the configuration file
     private void loadLobbyLocation() {
         FileConfiguration config = this.getConfig();
         if (config.contains("lobby")) {
@@ -142,6 +161,7 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
         }
     }
 
+    // Save the lobby location to the configuration file
     private void saveLobbyLocation(Location location) {
         FileConfiguration config = this.getConfig();
         config.set("lobby.world", location.getWorld().getName());
