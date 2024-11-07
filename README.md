@@ -6,7 +6,7 @@
 
 - **First-Time Join Welcome**: When a player joins the server for the first time, they’ll receive a personalized welcome message and a colorful firework show at their location.
 - **Returning Player Greeting**: Players who have joined before are greeted with a welcome back message.
-- **Lobby System**:
+- **Lobby System**
 - **This Commads Of lobby System**
   - **/setlobby**: Allows server admins to set a lobby location.
   - **/lobby** or **/l**: Teleports players to the set lobby location.
