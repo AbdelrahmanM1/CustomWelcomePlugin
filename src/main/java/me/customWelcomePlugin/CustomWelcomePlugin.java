@@ -19,12 +19,12 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 
-import java.util.HashSet;
-import java.util.Set;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CustomWelcomePlugin extends JavaPlugin implements Listener, CommandExecutor {
 
-    private Set<String> firstTimePlayers = new HashSet<>();
+    private Map<String, Long> playerJoinTimes = new HashMap<>();
     private Location lobbyLocation;
 
     @Override
@@ -54,17 +54,20 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
+        long currentTime = System.currentTimeMillis();
+        String playerName = player.getName();
 
-        // Send a general welcome message to both new and returning players
-        player.sendMessage(ChatColor.GOLD + "Welcome to PracticePlace Network, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
-
-        // Check if the player is joining for the first time
-        if (firstTimePlayers.add(player.getName())) {
-            // First-time player message, firework will be launched
-            player.sendMessage(ChatColor.GREEN + "Have a fun!");
+        // Check if the player is joining for the first time or has been away for more than 5 minutes
+        if (!playerJoinTimes.containsKey(playerName) || (currentTime - playerJoinTimes.get(playerName)) > 300000) {
+            // Send the welcome message for first-time or players who have been away for more than 5 minutes
+            player.sendMessage(ChatColor.GOLD + "Welcome to PracticePlace Network, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
             playFirework(player.getLocation());
+            player.sendMessage(ChatColor.GREEN + "Enjoy your time on the server!");
+
+            // Update the player's join time
+            playerJoinTimes.put(playerName, currentTime);
         } else {
-            // Returning player message
+            // For returning players who are back within 5 minutes, only a general welcome
             player.sendMessage(ChatColor.YELLOW + "Welcome back, " + ChatColor.AQUA + player.getName() + ChatColor.YELLOW + "!");
         }
 
