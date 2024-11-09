@@ -7,7 +7,7 @@ import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Type;
 import org.bukkit.Location;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.entity.Fireball;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -15,74 +15,59 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.meta.FireworkMeta;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
-import org.bukkit.command.CommandSender;
+import org.bukkit.scoreboard.*;
 
+import java.io.File;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
-public class CustomWelcomePlugin extends JavaPlugin implements Listener, CommandExecutor {
+public class CustomWelcomePlugin extends JavaPlugin implements Listener {
 
+    private File scoreboardConfigFile;
+    private FileConfiguration scoreboardConfig;
     private Map<String, Long> playerJoinTimes = new HashMap<>();
     private Location lobbyLocation;
+    private int titleIndex = 0;  // Used to keep track of which title is being displayed
+    private List<String> animatedTitles;
+    private int animationTaskId;
 
     @Override
     public void onEnable() {
-        // Register event listeners
         Bukkit.getPluginManager().registerEvents(this, this);
-
-        // Register commands
-        this.getCommand("launchfireball").setExecutor(this);
-        this.getCommand("lobby").setExecutor(this);
-        this.getCommand("l").setExecutor(this);
-        this.getCommand("setlobby").setExecutor(this);
-
-        // Load lobby location from the config
         loadLobbyLocation();
-
-        // Log plugin status
+        loadScoreboardConfig();
+        startScoreboardAnimation();
         getLogger().info("CustomWelcomePlugin Enabled!");
     }
 
     @Override
     public void onDisable() {
-        // Log plugin shutdown
         getLogger().info("CustomWelcomePlugin Disabled!");
+        Bukkit.getScheduler().cancelTask(animationTaskId);
     }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         Player player = event.getPlayer();
         long currentTime = System.currentTimeMillis();
-        String playerName = player.getName();
 
-        // Check if the player is joining for the first time or has been away for more than 5 minutes
-        if (!playerJoinTimes.containsKey(playerName) || (currentTime - playerJoinTimes.get(playerName)) > 300000) {
-            // Send the welcome message for first-time or players who have been away for more than 5 minutes
-            player.sendMessage(ChatColor.GOLD + "Welcome to PracticePlace Network, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
+        // Custom welcome message logic based on join time
+        if (!playerJoinTimes.containsKey(player.getName()) || (currentTime - playerJoinTimes.get(player.getName())) > 300000) {
+            player.sendMessage(ChatColor.GOLD + "Welcome to server, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
             playFirework(player.getLocation());
-            player.sendMessage(ChatColor.GREEN + "Enjoy your time on the server!");
-
-            // Update the player's join time
-            playerJoinTimes.put(playerName, currentTime);
+            playerJoinTimes.put(player.getName(), currentTime);
         } else {
-            // For returning players who are back within 5 minutes, only a general welcome
             player.sendMessage(ChatColor.YELLOW + "Welcome back, " + ChatColor.AQUA + player.getName() + ChatColor.YELLOW + "!");
         }
 
-        // Broadcast a general welcome message to all players (optional)
-        Bukkit.broadcastMessage(ChatColor.LIGHT_PURPLE + "Launched PracticePlace");
+        // Show the scoreboard to the player
+        showScoreboard(player);
     }
 
-    // Method to spawn fireworks at the given location
     private void playFirework(Location location) {
         if (location.getWorld() == null) return;
-
-        // Spawn a firework at the location
         Firework firework = location.getWorld().spawn(location, Firework.class);
-
-        // Create a firework effect (Red color with a Green fade)
         FireworkEffect effect = FireworkEffect.builder()
                 .with(Type.BALL)
                 .withColor(Color.RED)
@@ -91,65 +76,79 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
                 .flicker(true)
                 .build();
 
-        // Apply the effect to the firework
         FireworkMeta meta = firework.getFireworkMeta();
         meta.addEffect(effect);
-        meta.setPower(1); // Set the power (height) of the firework
+        meta.setPower(1);
         firework.setFireworkMeta(meta);
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
-        if (sender instanceof Player) {
-            Player player = (Player) sender;
+    private void showScoreboard(Player player) {
+        // Get current animated title
+        String title = ChatColor.translateAlternateColorCodes('&', animatedTitles.get(titleIndex));
+        List<String> lines = scoreboardConfig.getStringList("lines");
 
-            switch (command.getName().toLowerCase()) {
-                case "launchfireball":
-                    // Handle launching a fireball
-                    if (player.hasPermission("customwelcomeplugin.launchfireball")) {
-                        player.launchProjectile(Fireball.class);
-                        player.sendMessage(ChatColor.RED + "You launched a fireball!");
-                    } else {
-                        player.sendMessage(ChatColor.RED + "You do not have permission to use this command.");
-                    }
-                    return true;
+        // Create a new scoreboard and objective
+        ScoreboardManager manager = Bukkit.getScoreboardManager();
+        Scoreboard scoreboard = manager.getNewScoreboard();
+        Objective objective = scoreboard.registerNewObjective("customWelcome", "dummy");
+        objective.setDisplaySlot(DisplaySlot.SIDEBAR);
+        objective.setDisplayName(title); // Set the animated title
 
-                case "setlobby":
-                    // Handle setting the lobby location
-                    if (player.hasPermission("customwelcomeplugin.setlobby")) {
-                        lobbyLocation = player.getLocation();
-                        saveLobbyLocation(lobbyLocation);
-                        player.sendMessage(ChatColor.GREEN + "Lobby location set!");
-                    } else {
-                        player.sendMessage(ChatColor.RED + "You do not have permission to set the lobby location.");
-                    }
-                    return true;
+        // Set scoreboard lines with placeholders
+        int score = lines.size();
+        for (String line : lines) {
+            String processedLine = line
+                    .replace("%player_name%", player.getName())
+                    .replace("%online_players%", String.valueOf(Bukkit.getOnlinePlayers().size()))
+                    .replace("%max_players%", String.valueOf(Bukkit.getMaxPlayers()))
+                    .replace("%rank%", getRank(player))
+                    .replace("%ping%", String.valueOf(getPing(player)))
+                    .replace("%lobby_name%", (lobbyLocation != null ? lobbyLocation.getWorld().getName() : "Lobby"));
 
-                case "lobby":
-                case "l":
-                    // Handle teleporting to the lobby
-                    if (player.hasPermission("customwelcomeplugin.lobby")) {
-                        if (lobbyLocation != null) {
-                            player.teleport(lobbyLocation);
-                            player.sendMessage(ChatColor.GREEN + "Teleported to the lobby.");
-                        } else {
-                            player.sendMessage(ChatColor.RED + "Lobby location is not set.");
-                        }
-                    } else {
-                        player.sendMessage(ChatColor.RED + "You do not have permission to teleport to the lobby.");
-                    }
-                    return true;
+            objective.getScore(ChatColor.translateAlternateColorCodes('&', processedLine)).setScore(score);
+            score--;
+        }
 
-                default:
-                    return false;
-            }
-        } else {
-            sender.sendMessage(ChatColor.RED + "Only players can use this command.");
-            return true;
+        // Assign the scoreboard to the player
+        player.setScoreboard(scoreboard);
+    }
+
+    private String getRank(Player player) {
+        return "Member";  // Replace with actual rank fetching logic
+    }
+
+    private int getPing(Player player) {
+        try {
+            Object entityPlayer = player.getClass().getMethod("getHandle").invoke(player);
+            return (int) entityPlayer.getClass().getField("ping").get(entityPlayer);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return 0;
         }
     }
 
-    // Load the lobby location from the configuration file
+    private void loadScoreboardConfig() {
+        scoreboardConfigFile = new File(getDataFolder(), "scoreboard.yml");
+        if (!scoreboardConfigFile.exists()) {
+            scoreboardConfigFile.getParentFile().mkdirs();
+            saveResource("scoreboard.yml", false);
+        }
+        scoreboardConfig = YamlConfiguration.loadConfiguration(scoreboardConfigFile);
+        animatedTitles = scoreboardConfig.getStringList("title");  // Load the animated title list
+    }
+
+    private void startScoreboardAnimation() {
+        animationTaskId = Bukkit.getScheduler().scheduleSyncRepeatingTask(this, () -> {
+            // Update title index for the next title
+            titleIndex = (titleIndex + 1) % animatedTitles.size();
+
+            // Update the scoreboard for all players
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                showScoreboard(player);
+            }
+        }, 0L, 20L);  // Update every 20 ticks (1 second)
+    }
+
     private void loadLobbyLocation() {
         FileConfiguration config = this.getConfig();
         if (config.contains("lobby")) {
@@ -162,17 +161,5 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener, Command
                     (float) config.getDouble("lobby.pitch")
             );
         }
-    }
-
-    // Save the lobby location to the configuration file
-    private void saveLobbyLocation(Location location) {
-        FileConfiguration config = this.getConfig();
-        config.set("lobby.world", location.getWorld().getName());
-        config.set("lobby.x", location.getX());
-        config.set("lobby.y", location.getY());
-        config.set("lobby.z", location.getZ());
-        config.set("lobby.yaw", location.getYaw());
-        config.set("lobby.pitch", location.getPitch());
-        saveConfig();
     }
 }

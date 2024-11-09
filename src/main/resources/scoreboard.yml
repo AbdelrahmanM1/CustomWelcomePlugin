@@ -1,0 +1,17 @@
+# scoreboard.yml
+
+title:
+  - "&bOn&9e&dt&1ic&7ePl&5ac&6e"
+  - "&bOn&9e&dt&1ic&7ePl&5ac&6e"
+  - "&atests"
+  - "&bOn&9e&dt&1ic&7ePl&5ac&6e"
+
+lines:
+  - "&7&m------------------------"
+  - "&ePlayer: &a%player_name%"
+  - "&eRank: &b%rank%"
+  - "&eOnline: &a%online_players% &7/&a%max_players%"
+  - "&eLobby: &a%lobby_name%"
+  - "&ePing: &a%ping% ms"
+  - "&7&m------------------------"
+  - "&ePlay at &ctest"
