@@ -6,14 +6,16 @@ import org.bukkit.Color;
 import org.bukkit.FireworkEffect;
 import org.bukkit.FireworkEffect.Type;
 import org.bukkit.Location;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Firework;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.inventory.meta.FireworkMeta;
+import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scoreboard.*;
 
@@ -54,7 +56,7 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
 
         // Custom welcome message logic based on join time
         if (!playerJoinTimes.containsKey(player.getName()) || (currentTime - playerJoinTimes.get(player.getName())) > 300000) {
-            player.sendMessage(ChatColor.GOLD + "Welcome to server, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
+            player.sendMessage(ChatColor.GOLD + "Welcome to OneHypixelCracked Network, " + ChatColor.AQUA + player.getName() + ChatColor.GOLD + "!");
             playFirework(player.getLocation());
             playerJoinTimes.put(player.getName(), currentTime);
         } else {
@@ -161,5 +163,64 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
                     (float) config.getDouble("lobby.pitch")
             );
         }
+    }
+
+    // Command handling for /setlobby, /l, /lobby, and /launchfirework
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (!(sender instanceof Player)) {
+            sender.sendMessage(ChatColor.RED + "Only players can use this command.");
+            return true;
+        }
+
+        Player player = (Player) sender;
+        switch (command.getName().toLowerCase()) {
+            case "setlobby":
+                if (player.hasPermission("customwelcomeplugin.setlobby")) {
+                    lobbyLocation = player.getLocation();
+                    saveLobbyLocation(lobbyLocation);
+                    player.sendMessage(ChatColor.GREEN + "Lobby location set!");
+                } else {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to set the lobby location.");
+                }
+                return true;
+
+            case "l":
+            case "lobby":
+                if (player.hasPermission("customwelcomeplugin.lobby")) {
+                    if (lobbyLocation != null) {
+                        player.teleport(lobbyLocation);
+                        player.sendMessage(ChatColor.GREEN + "Teleported to the lobby.");
+                    } else {
+                        player.sendMessage(ChatColor.RED + "Lobby location is not set.");
+                    }
+                } else {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to teleport to the lobby.");
+                }
+                return true;
+
+            case "launchfirework":
+                if (player.hasPermission("customwelcomeplugin.launchfirework")) {
+                    playFirework(player.getLocation());
+                    player.sendMessage(ChatColor.GREEN + "Firework launched!");
+                } else {
+                    player.sendMessage(ChatColor.RED + "You do not have permission to launch a firework.");
+                }
+                return true;
+
+            default:
+                return false;
+        }
+    }
+
+    private void saveLobbyLocation(Location location) {
+        FileConfiguration config = this.getConfig();
+        config.set("lobby.world", location.getWorld().getName());
+        config.set("lobby.x", location.getX());
+        config.set("lobby.y", location.getY());
+        config.set("lobby.z", location.getZ());
+        config.set("lobby.yaw", location.getYaw());
+        config.set("lobby.pitch", location.getPitch());
+        saveConfig();
     }
 }
