@@ -6,34 +6,27 @@ authors: [ AbdelrahmanMoharram, Ahmedabk ]
 description: A custom Welcome Plugin and LobbyPlugin not else
 commands:
   setlobby:
-    description: Sets the current location as the lobby.
-    usage: /setlobby
+    description: Set the lobby spawn point
     permission: customwelcomeplugin.setlobby
-
   lobby:
-    description: Teleports the player to the lobby location.
-    usage: /lobby
+    description: Teleport to the lobby
     permission: customwelcomeplugin.lobby
-
-  l:
-    description: Shortcut for /lobby command.
-    usage: /l
-    permission: customwelcomeplugin.lobby
-
-  launchfireball:
-    description: Launches a fireball.
-    usage: /launchfireball
-    permission: customwelcomeplugin.launchfireball
-
+  launchFirework:
+    description: Launch a firework at your location
+    permission: customwelcomeplugin.launchfirework
+  reload:
+    description: Reload plugin configurations
+    permission: customwelcomeplugin.reload
 permissions:
   customwelcomeplugin.setlobby:
-    description: Allows the player to set the lobby location.
+    description: Allows the player to set the lobby location
     default: op
-
   customwelcomeplugin.lobby:
-    description: Allows the player to teleport to the lobby.
-    default: true  # Allows all players to use it by default
-
-  customwelcomeplugin.launchfireball:
-    description: Allows the player to launch a fireball.
-    default: op  # Only ops by default, but can be granted to specific players
+    description: Allows the player to teleport to the lobby
+    default: true
+  customwelcomeplugin.launchfirework:
+    description: Allows the player to launch fireworks
+    default: true
+  customwelcomeplugin.reload:
+    description: Allows the player to reload the plugin configuration
+    default: op
