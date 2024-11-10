@@ -1,35 +1,36 @@
 package me.customWelcomePlugin;
 
-import me.clip.placeholderapi.PlaceholderAPI;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.Listener;
-import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scoreboard.*;
 
 import java.io.File;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
-public class CustomWelcomePlugin extends JavaPlugin implements Listener {
+public class CustomWelcomePlugin extends JavaPlugin {
 
     private FileConfiguration config;
     private FileConfiguration messages;
     private Map<UUID, Long> lastJoinTimes = new HashMap<>();
+    private ScoreboardManager scoreboardManager;
+    private Scoreboard scoreboard;
 
     @Override
     public void onEnable() {
-        // Save the default configuration files (config.yml and messages.yml)
-        saveDefaultConfig();
+        // Save the default config file if it doesn't exist already
+        saveDefaultConfig(); // This will create the config.yml in the plugin's data folder
+
         createMessagesConfig();
 
         // Load the configurations
@@ -42,8 +43,12 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
         this.getCommand("launchFirework").setExecutor(new LaunchFireworkCommand());
         this.getCommand("reload").setExecutor(new ReloadCommand());
 
-        // Register the event listener
-        Bukkit.getPluginManager().registerEvents(this, this);
+        // Register the event listener for player join
+        Bukkit.getPluginManager().registerEvents(new PlayerJoinListener(), this);
+
+        // Initialize scoreboard
+        this.scoreboardManager = Bukkit.getScoreboardManager();
+        this.scoreboard = scoreboardManager.getNewScoreboard();
 
         getLogger().info("CustomWelcomePlugin enabled.");
     }
@@ -53,38 +58,42 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
         getLogger().info("CustomWelcomePlugin disabled.");
     }
 
-    // Ensure the messages.yml file exists
     private void createMessagesConfig() {
+        if (!getDataFolder().exists()) {
+            getDataFolder().mkdir();
+        }
+
         File messagesFile = new File(getDataFolder(), "messages.yml");
         if (!messagesFile.exists()) {
-            saveResource("messages.yml", false); // Create the messages file from the plugin resources
+            saveResource("messages.yml", false);  // This will copy the messages.yml file from the plugin resources
         }
     }
 
-    // Load the messages configuration file
     private FileConfiguration getMessagesConfig() {
         return YamlConfiguration.loadConfiguration(new File(getDataFolder(), "messages.yml"));
     }
 
-    // Player join event handling with PlaceholderAPI support
-    @EventHandler
-    public void onPlayerJoin(PlayerJoinEvent event) {
-        Player player = event.getPlayer();
+    // Listener for player join
+    private class PlayerJoinListener implements org.bukkit.event.Listener {
+        @org.bukkit.event.EventHandler
+        public void onPlayerJoin(org.bukkit.event.player.PlayerJoinEvent event) {
+            Player player = event.getPlayer();
+            if (!lastJoinTimes.containsKey(player.getUniqueId())) {
+                String message = messages.getString("welcome-message").replace("%player_name%", player.getName());
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
 
-        // Use PlaceholderAPI to replace placeholders in messages
-        String welcomeMessage = PlaceholderAPI.setPlaceholders(player, messages.getString("welcome-message"));
-        String returningMessage = PlaceholderAPI.setPlaceholders(player, messages.getString("returning-message"));
+                // Firework effect
+                player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Firework.class);
 
-        if (!lastJoinTimes.containsKey(player.getUniqueId())) {
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', welcomeMessage));
-            player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Firework.class); // Firework effect
-            lastJoinTimes.put(player.getUniqueId(), System.currentTimeMillis());
-        } else {
-            player.sendMessage(ChatColor.translateAlternateColorCodes('&', returningMessage));
+                lastJoinTimes.put(player.getUniqueId(), System.currentTimeMillis());
+            } else {
+                String message = messages.getString("returning-message").replace("%player_name%", player.getName());
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', message));
+            }
         }
     }
 
-    // Command to set the lobby location
+    // Command for setting the lobby
     private class SetLobbyCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -99,16 +108,16 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
                     config.set("lobby.yaw", loc.getYaw());
                     config.set("lobby.pitch", loc.getPitch());
                     saveConfig();
-                    player.sendMessage(ChatColor.GREEN + PlaceholderAPI.setPlaceholders(player, messages.getString("setlobby-success")));
+                    player.sendMessage(ChatColor.GREEN + messages.getString("setlobby-success"));
                 }
             } else {
-                sender.sendMessage(ChatColor.RED + PlaceholderAPI.setPlaceholders((Player) sender, messages.getString("setlobby-no-permission")));
+                sender.sendMessage(ChatColor.RED + messages.getString("setlobby-no-permission"));
             }
             return true;
         }
     }
 
-    // Command to teleport the player to the lobby
+    // Command for teleporting to lobby
     private class LobbyCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -124,16 +133,16 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
 
                     Location lobbyLocation = new Location(Bukkit.getWorld(world), x, y, z, yaw, pitch);
                     player.teleport(lobbyLocation);
-                    player.sendMessage(ChatColor.GREEN + PlaceholderAPI.setPlaceholders(player, messages.getString("teleport-lobby-success")));
+                    player.sendMessage(ChatColor.GREEN + messages.getString("teleport-lobby-success"));
                 } else {
-                    player.sendMessage(ChatColor.RED + PlaceholderAPI.setPlaceholders(player, messages.getString("teleport-lobby-no-location")));
+                    player.sendMessage(ChatColor.RED + messages.getString("teleport-lobby-no-location"));
                 }
             }
             return true;
         }
     }
 
-    // Command to launch a firework
+    // Command for launching fireworks
     private class LaunchFireworkCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -141,25 +150,25 @@ public class CustomWelcomePlugin extends JavaPlugin implements Listener {
                 Player player = (Player) sender;
                 if (player.hasPermission("customwelcomeplugin.launchfirework")) {
                     player.getWorld().spawn(player.getLocation(), org.bukkit.entity.Firework.class);
-                    player.sendMessage(ChatColor.GREEN + PlaceholderAPI.setPlaceholders(player, messages.getString("launchfirework-success")));
+                    player.sendMessage(ChatColor.GREEN + messages.getString("launchfirework-success"));
                 } else {
-                    player.sendMessage(ChatColor.RED + PlaceholderAPI.setPlaceholders(player, messages.getString("launchfirework-no-permission")));
+                    player.sendMessage(ChatColor.RED + messages.getString("launchfirework-no-permission"));
                 }
             }
             return true;
         }
     }
 
-    // Command to reload the configuration
+    // Command for reloading the plugin
     private class ReloadCommand implements CommandExecutor {
         @Override
         public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
             if (sender.hasPermission("customwelcomeplugin.reload")) {
                 reloadConfig();
                 messages = getMessagesConfig();
-                sender.sendMessage(ChatColor.GREEN + PlaceholderAPI.setPlaceholders((Player) sender, messages.getString("reload-success")));
+                sender.sendMessage(ChatColor.GREEN + messages.getString("reload-success"));
             } else {
-                sender.sendMessage(ChatColor.RED + PlaceholderAPI.setPlaceholders((Player) sender, messages.getString("reload-fail")));
+                sender.sendMessage(ChatColor.RED + messages.getString("reload-fail"));
             }
             return true;
         }
